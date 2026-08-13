@@ -1,0 +1,93 @@
+server:
+  port: ${DUMA_SHELL_BACKEND_PORT:${APP_SHELL_PORT:8080}}
+  servlet:
+    session:
+      timeout: ${DUMA_SESSION_TIMEOUT:30m}
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${DUMA_SESSION_SECURE_COOKIE:false}
+
+spring:
+  application:
+    name: app-shell
+  datasource:
+    url: jdbc:sqlserver://${DUMA_SYSTEMLOG_MSSQL_HOST:localhost}:${DUMA_SYSTEMLOG_MSSQL_PORT:1433};databaseName=${DUMA_SYSTEMLOG_MSSQL_DATABASE:DumaSystemLogs};encrypt=${DUMA_SYSTEMLOG_MSSQL_ENCRYPT:true};trustServerCertificate=${DUMA_SYSTEMLOG_MSSQL_TRUST_SERVER_CERTIFICATE:false}
+    username: ${DUMA_SYSTEMLOG_MSSQL_USERNAME:}
+    password: ${DUMA_SYSTEMLOG_MSSQL_PASSWORD:}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      minimum-idle: 0
+      maximum-pool-size: ${DUMA_SYSTEMLOG_MSSQL_POOL_SIZE:5}
+      connection-timeout: 10000
+      validation-timeout: 5000
+  threads:
+    virtual:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  structured:
+    format:
+      console: logstash
+
+duma:
+  security:
+    issuer: ${DUMA_AUTH_ISSUER:http://localhost:${DUMA_SHELL_BACKEND_PORT:${APP_SHELL_PORT:8080}}}
+    token-ttl: ${DUMA_MODULE_TOKEN_TTL:2m}
+    private-key-base64: ${DUMA_JWT_PRIVATE_KEY_BASE64:}
+    public-key-base64: ${DUMA_JWT_PUBLIC_KEY_BASE64:}
+    allow-ephemeral-keys: ${DUMA_ALLOW_EPHEMERAL_KEYS:false}
+  modules:
+    experiencia-digital:
+      display-name: Experiencia digital
+      custom-element: duma-experience-module
+      remote-entry-url: ${DUMA_EXPERIENCE_REMOTE_ENTRY_URL:http://localhost:${DUMA_EXPERIENCE_BACKEND_PORT:${EXPERIENCE_PORT:8081}}/remote-entry.js}
+      api-base-url: ${DUMA_EXPERIENCE_API_BASE_URL:http://localhost:${DUMA_EXPERIENCE_BACKEND_PORT:${EXPERIENCE_PORT:8081}}}
+      release-stage: ${DUMA_EXPERIENCE_RELEASE_STAGE:DEVELOPMENT}
+      data-environment: ${DUMA_EXPERIENCE_DATA_ENVIRONMENT:PRODUCTION}
+      freshness-mode: ${DUMA_EXPERIENCE_FRESHNESS_MODE:LIVE}
+      clearance: ${DUMA_EXPERIENCE_CLEARANCE:ACADEMIC_PRIVATE}
+      tenant-scope: ${DUMA_EXPERIENCE_TENANT_SCOPE:ALL_TENANTS}
+      capabilities: [dashboard, tenant-coverage, drilldown]
+    lecturas:
+      display-name: Lecturas
+      custom-element: duma-readings-module
+      remote-entry-url: ${DUMA_READINGS_REMOTE_ENTRY_URL:http://localhost:${DUMA_READINGS_BACKEND_PORT:${READINGS_PORT:8082}}/remote-entry.js}
+      api-base-url: ${DUMA_READINGS_API_BASE_URL:http://localhost:${DUMA_READINGS_BACKEND_PORT:${READINGS_PORT:8082}}}
+      release-stage: ${DUMA_READINGS_RELEASE_STAGE:DEVELOPMENT}
+      data-environment: ${DUMA_READINGS_DATA_ENVIRONMENT:PRODUCTION}
+      freshness-mode: ${DUMA_READINGS_FRESHNESS_MODE:LIVE}
+      clearance: ${DUMA_READINGS_CLEARANCE:ACADEMIC_PRIVATE}
+      tenant-scope: ${DUMA_READINGS_TENANT_SCOPE:ALL_TENANTS}
+      capabilities: [dashboard, tenant-coverage, sensor-exceptions]
+    dispositivos:
+      display-name: Dispositivos
+      custom-element: duma-devices-module
+      remote-entry-url: ${DUMA_DEVICES_REMOTE_ENTRY_URL:http://localhost:${DUMA_DEVICES_BACKEND_PORT:${DEVICES_PORT:8083}}/remote-entry.js}
+      api-base-url: ${DUMA_DEVICES_API_BASE_URL:http://localhost:${DUMA_DEVICES_BACKEND_PORT:${DEVICES_PORT:8083}}}
+      release-stage: ${DUMA_DEVICES_RELEASE_STAGE:DEVELOPMENT}
+      data-environment: ${DUMA_DEVICES_DATA_ENVIRONMENT:PRODUCTION}
+      freshness-mode: ${DUMA_DEVICES_FRESHNESS_MODE:LIVE}
+      clearance: ${DUMA_DEVICES_CLEARANCE:ACADEMIC_PRIVATE}
+      tenant-scope: ${DUMA_DEVICES_TENANT_SCOPE:ALL_TENANTS}
+      capabilities: [dashboard, tenant-coverage, typed-equipment-detail]
+    smartaudits:
+      display-name: SmartAudits
+      custom-element: duma-smartaudits-module
+      remote-entry-url: ${DUMA_SMARTAUDITS_REMOTE_ENTRY_URL:http://localhost:${DUMA_SMARTAUDITS_BACKEND_PORT:${SMARTAUDITS_PORT:8084}}/remote-entry.js}
+      api-base-url: ${DUMA_SMARTAUDITS_API_BASE_URL:http://localhost:${DUMA_SMARTAUDITS_BACKEND_PORT:${SMARTAUDITS_PORT:8084}}}
+      release-stage: ${DUMA_SMARTAUDITS_RELEASE_STAGE:DEVELOPMENT}
+      data-environment: ${DUMA_SMARTAUDITS_DATA_ENVIRONMENT:PRODUCTION}
+      freshness-mode: ${DUMA_SMARTAUDITS_FRESHNESS_MODE:LIVE}
+      clearance: ${DUMA_SMARTAUDITS_CLEARANCE:ACADEMIC_PRIVATE}
+      tenant-scope: ${DUMA_SMARTAUDITS_TENANT_SCOPE:ALL_TENANTS}
+      capabilities: [dashboard, tenant-coverage, human-review-queue]

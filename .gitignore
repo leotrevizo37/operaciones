@@ -1,0 +1,11 @@
+**/target/
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+**/src/main/resources/static/
+**/playwright-report/
+**/test-results/
+**/.idea/
+**/*.log
+config/ports.local.ps1
+.DS_Store

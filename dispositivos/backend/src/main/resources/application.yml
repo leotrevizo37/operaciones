@@ -1,0 +1,44 @@
+server: { port: "${DUMA_DEVICES_BACKEND_PORT:${DEVICES_PORT:8083}}" }
+spring:
+  application: { name: dispositivos }
+  datasource:
+    url: jdbc:sqlserver://${DUMA_SYSTEMLOG_MSSQL_HOST:localhost}:${DUMA_SYSTEMLOG_MSSQL_PORT:1433};databaseName=${DUMA_SYSTEMLOG_MSSQL_DATABASE:DumaSystemLogs};encrypt=${DUMA_SYSTEMLOG_MSSQL_ENCRYPT:true};trustServerCertificate=${DUMA_SYSTEMLOG_MSSQL_TRUST_SERVER_CERTIFICATE:false}
+    username: ${DUMA_SYSTEMLOG_MSSQL_USERNAME:}
+    password: ${DUMA_SYSTEMLOG_MSSQL_PASSWORD:}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari: { minimum-idle: 0, maximum-pool-size: 3, connection-timeout: 10000 }
+management: { endpoints: { web: { exposure: { include: "health,info" } } }, endpoint: { health: { show-details: never } } }
+logging: { structured: { format: { console: logstash } } }
+duma:
+  module:
+    id: dispositivos
+    display-name: Dispositivos
+    custom-element: duma-devices-module
+    remote-entry-url: ${DUMA_DEVICES_REMOTE_ENTRY_URL:http://localhost:${DUMA_DEVICES_BACKEND_PORT:${DEVICES_PORT:8083}}/remote-entry.js}
+    api-base-url: ${DUMA_DEVICES_API_BASE_URL:http://localhost:${DUMA_DEVICES_BACKEND_PORT:${DEVICES_PORT:8083}}}
+    release-stage: ${DUMA_DEVICES_RELEASE_STAGE:DEVELOPMENT}
+    data-environment: ${DUMA_DEVICES_DATA_ENVIRONMENT:PRODUCTION}
+    freshness-mode: ${DUMA_DEVICES_FRESHNESS_MODE:LIVE}
+    clearance: ${DUMA_DEVICES_CLEARANCE:ACADEMIC_PRIVATE}
+    tenant-scope: ${DUMA_DEVICES_TENANT_SCOPE:ALL_TENANTS}
+  security:
+    issuer: ${DUMA_AUTH_ISSUER:http://localhost:${DUMA_SHELL_BACKEND_PORT:${APP_SHELL_PORT:8080}}}
+    jwk-set-uri: ${DUMA_AUTH_JWKS_URI:http://localhost:${DUMA_SHELL_BACKEND_PORT:${APP_SHELL_PORT:8080}}/api/integration/jwks}
+    standalone-mode: ${DUMA_DEVICES_STANDALONE_MODE:false}
+    allowed-origins: ${DUMA_DEVICES_ALLOWED_ORIGINS:http://localhost:${DUMA_SHELL_BACKEND_PORT:${APP_SHELL_PORT:8080}},http://localhost:${DUMA_SHELL_FRONTEND_PORT:5173},http://localhost:${DUMA_DEVICES_FRONTEND_PORT:5176}}
+  warehouse:
+    host: ${DUMA_WAREHOUSE_MSSQL_HOST:localhost}
+    port: ${DUMA_WAREHOUSE_MSSQL_PORT:1433}
+    username: ${DUMA_WAREHOUSE_MSSQL_USERNAME:}
+    password: ${DUMA_WAREHOUSE_MSSQL_PASSWORD:}
+    encrypt: ${DUMA_WAREHOUSE_MSSQL_ENCRYPT:true}
+    trust-server-certificate: ${DUMA_WAREHOUSE_MSSQL_TRUST_SERVER_CERTIFICATE:false}
+    pool-size-per-tenant: ${DUMA_WAREHOUSE_POOL_SIZE_PER_TENANT:2}
+  tenants:
+    carlsjr: { display-name: Carls Jr, database: "${DUMA_TENANT_CARLSJR_DATABASE:WarehouseSidonCarlsJr}" }
+    emerson: { display-name: Emerson, database: "${DUMA_TENANT_EMERSON_DATABASE:WarehouseSidonEmerson}" }
+    valledelencino: { display-name: Valle del Encino, database: "${DUMA_TENANT_VALLEDELENCINO_DATABASE:WarehouseSidonValleDelEncino}" }
+    mcdonalds: { display-name: "McDonald's", database: "${DUMA_TENANT_MCDONALDS_DATABASE:}" }
+    mcdonalds-cdp: { display-name: "McDonald's CDP", database: "${DUMA_TENANT_MCDONALDS_CDP_DATABASE:}" }
+    smartfit: { display-name: SmartFit, database: "${DUMA_TENANT_SMARTFIT_DATABASE:}" }
+    bafar-poc-gabinete: { display-name: Bafar POC Gabinete, database: "${DUMA_TENANT_BAFAR_POC_GABINETE_DATABASE:}" }

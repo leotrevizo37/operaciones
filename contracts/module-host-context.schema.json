@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://duma.local/contracts/module-host-context.schema.json",
+  "title": "Duma Module Host Context",
+  "type": "object",
+  "required": ["protocolVersion", "moduleId", "locale", "timezone", "tenantIds", "period", "identity"],
+  "properties": {
+    "protocolVersion": { "const": "1.0" },
+    "moduleId": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "locale": { "const": "es-MX" },
+    "timezone": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "tenantIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+    },
+    "period": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string", "format": "date" },
+        "to": { "type": "string", "format": "date" }
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "required": ["subject", "displayName", "roles", "permissions", "tenantScope"],
+      "properties": {
+        "subject": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "roles": { "type": "array", "items": { "type": "string", "maxLength": 120 } },
+        "permissions": { "type": "array", "items": { "type": "string", "maxLength": 160 } },
+        "tenantScope": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
