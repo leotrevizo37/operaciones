@@ -28,18 +28,24 @@ public class RsaKeyConfiguration {
     try {
       DumaProperties.Security security = properties.getSecurity();
       if (hasText(security.getPrivateKeyBase64()) && hasText(security.getPublicKeyBase64())) {
-        KeyFactory factory = KeyFactory.getInstance("RSA");
-        RSAPrivateKey privateKey =
-            (RSAPrivateKey)
-                factory.generatePrivate(
-                    new PKCS8EncodedKeySpec(
-                        Base64.getDecoder().decode(security.getPrivateKeyBase64())));
-        RSAPublicKey publicKey =
-            (RSAPublicKey)
-                factory.generatePublic(
-                    new X509EncodedKeySpec(
-                        Base64.getDecoder().decode(security.getPublicKeyBase64())));
-        return buildKey(publicKey, privateKey);
+        try {
+          KeyFactory factory = KeyFactory.getInstance("RSA");
+          RSAPrivateKey privateKey =
+              (RSAPrivateKey)
+                  factory.generatePrivate(
+                      new PKCS8EncodedKeySpec(
+                          decodeKey(security.getPrivateKeyBase64())));
+          RSAPublicKey publicKey =
+              (RSAPublicKey)
+                  factory.generatePublic(
+                      new X509EncodedKeySpec(
+                          decodeKey(security.getPublicKeyBase64())));
+          return buildKey(publicKey, privateKey);
+        } catch (Exception exception) {
+          if (!security.isAllowEphemeralKeys()) {
+            throw exception;
+          }
+        }
       }
       if (!security.isAllowEphemeralKeys()) {
         throw new IllegalStateException("Las llaves JWT del shell no estan configuradas.");
@@ -71,5 +77,15 @@ public class RsaKeyConfiguration {
 
   private boolean hasText(String value) {
     return value != null && !value.isBlank();
+  }
+
+  private byte[] decodeKey(String value) {
+    String normalized =
+        value.replace("\\n", "").replace("\\r", "").replaceAll("-----[^-]+-----|\\s", "");
+    try {
+      return Base64.getDecoder().decode(normalized);
+    } catch (IllegalArgumentException exception) {
+      return Base64.getUrlDecoder().decode(normalized);
+    }
   }
 }

@@ -5,6 +5,8 @@ export type HostContext = {
   timezone: string
   tenantIds: string[]
   period: { from: string; to: string }
+  filters?: { location: string; device: string; sensor: string }
+  freshness: Freshness[]
   identity: {
     subject: string
     displayName: string
@@ -16,6 +18,8 @@ export type HostContext = {
   auth: { getAccessToken: (moduleId: string) => Promise<string> }
   navigate: (target: { moduleId: string; path?: string }) => void
 }
+
+export type Freshness = { tenantId: string; tenantName: string; ingestionName: string; lastRunStatus: string | null; lastLoadedAt: string | null }
 
 export type Manifest = {
   protocolVersion: '1.0'
@@ -56,10 +60,13 @@ export type Device = {
   criticalHours: number
   degradedHours: number
   watchHours: number
+  eventMinutes?: number | null
+  openEvents?: number
   sevenDayHealthScore: number | null
   thirtyDayHealthScore: number | null
   trendDirection: string | null
   confidenceScore: number | null
+  peerPercentileRisk?: number | null
   failureRiskScore: number | null
   dominantReasonCode: string | null
   recommendedAction: string | null
@@ -70,6 +77,20 @@ export type Device = {
   modifiedAt: string | null
 }
 
+export type DeviceHour = {
+  deviceId: string; locationId: string; subLocationId: string; deviceName: string | null; deviceType: string | null; localTimeSpan: string; healthScore: number | null; operationalState: string | null; trendDirection: string | null; confidenceScore: number | null; coverageScore: number | null; expectedValueComplianceScore: number | null; sensorReliabilityScore: number | null; eventStabilityScore: number | null; behaviorStabilityScore: number | null; peerAlignmentScore: number | null; failureRiskScore: number | null; dominantReasonCode: string | null; recommendedAction: string | null; evidenceJson: string | null; featureSetVersion: string | null; scoringVersion: string | null; modelVersion: string | null; modifiedAt: string | null
+}
+
+export type DeviceDetailResponse = {
+  generatedAt: string
+  device: { tenantId: string; deviceId: string; locationId: string; subLocationId: string; localDate: string }
+  operationalHours: Array<{ localTimeSpan: string; healthScore: number | null; operationalState: string | null; trendDirection: string | null; confidenceScore: number | null; coverageScore: number | null; expectedValueComplianceScore: number | null; sensorReliabilityScore: number | null; eventStabilityScore: number | null; behaviorStabilityScore: number | null; peerAlignmentScore: number | null; failureRiskScore: number | null; dominantReasonCode: string | null; recommendedAction: string | null; evidenceJson: string | null; featureSetVersion: string | null; scoringVersion: string | null; modelVersion: string | null }>
+  measurements: Array<{ sensorId: string; sensorName: string | null; sensorType: string | null; localTimeSpan: string; measurementValue: number | null; measurementStdDev: number | null; anomalies: number | null; readingsCount: number | null; expectedMin: number | null; expectedMax: number | null; expectedSchedules: string | null; averageOutsideExpected: boolean | null; modifiedAt: string | null }>
+  events: Array<{ sensorId: string; sensorName: string | null; sensorType: string | null; localTimeSpan: string; value: number | null; eventMinutes: number | null; completed: boolean }>
+  audits: Array<{ sensorId: string; sensorName: string | null; sensorType: string | null; localTimeSpan: string; readingsCount: number; late: boolean; connectionLost: boolean; lastReadingAt: string | null; connectionLostAt: string | null; minutesWithoutReadings: number | null }>
+  sensors: Array<{ sensorId: string; sensorName: string | null; sensorType: string | null; active: boolean; expectedMin: number | null; expectedMax: number | null; startTime: string | null; endTime: string | null; scheduledDays: string | null }>
+}
+
 export type TenantResult = {
   tenantId: string
   tenantName: string
@@ -78,6 +99,8 @@ export type TenantResult = {
   current: Summary
   previous: Summary
   devices: Device[]
+  daily?: Device[]
+  hourly?: DeviceHour[]
   errorCode: string | null
 }
 

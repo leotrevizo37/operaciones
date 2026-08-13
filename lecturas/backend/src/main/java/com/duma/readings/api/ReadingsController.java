@@ -46,6 +46,17 @@ public class ReadingsController {
     return new ReadingsDashboard.Response(Instant.now(), effectiveFrom, effectiveTo, results);
   }
 
+  @GetMapping("/freshness")
+  public FreshnessResponse freshness(@RequestParam(required = false) String tenant) {
+    return new FreshnessResponse(
+        Instant.now(),
+        "factRedingsAudits",
+        selectTenants(tenant).stream().map(repository::freshness).toList());
+  }
+
+  public record FreshnessResponse(
+      Instant generatedAt, String ingestionName, List<ReadingsRepository.Freshness> tenants) {}
+
   private List<String> selectTenants(String tenant) {
     List<String> enabled =
         properties.getTenants().entrySet().stream()

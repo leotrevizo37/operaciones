@@ -61,10 +61,10 @@ public class SystemLogService {
         request.getHeader("User-Agent"));
   }
 
-  public void recordPromotion(String actor, boolean idempotent, HttpServletRequest request) {
+  public void recordApproval(String actor, boolean idempotent, HttpServletRequest request) {
     record(
         "BUSINESS_ACTION",
-        "SMARTAUDITS_REVIEW_PROMOTED",
+        "SMARTAUDITS_REVIEW_APPROVED",
         "SUCCESS",
         "INFO",
         RequestIdFilter.get(request),
@@ -74,7 +74,7 @@ public class SystemLogService {
         request.getRemoteAddr(),
         request.getHeader("User-Agent"));
     if (idempotent) {
-      log.info("smartaudits_promotion_idempotent tenant=carlsjr");
+      log.info("smartaudits_approval_idempotent tenant=carlsjr");
     }
   }
 

@@ -42,9 +42,9 @@ public class ReviewQueueController {
     return repository.pending(page, pageSize);
   }
 
-  @PostMapping("/promote")
-  public ReviewQueueModels.Promotion promote(
-      @Valid @RequestBody PromotionRequest request,
+  @PostMapping("/approve")
+  public ReviewQueueModels.Approval approve(
+      @Valid @RequestBody ApprovalRequest request,
       Authentication authentication,
       HttpServletRequest servletRequest) {
     if (!(authentication instanceof JwtAuthenticationToken jwt)) {
@@ -56,15 +56,15 @@ public class ReviewQueueController {
       throw new ResponseStatusException(
           HttpStatus.UNPROCESSABLE_ENTITY, "La identidad autenticada no es valida.");
     }
-    ReviewQueueModels.Promotion promotion =
-        repository.promote(
+    ReviewQueueModels.Approval approval =
+        repository.approve(
             request.normalizedCommentHash(),
             request.aiResult(),
             request.resultCategory(),
             reviewedBy,
             request.reviewNotes());
-    logs.recordPromotion(reviewedBy, promotion.idempotent(), servletRequest);
-    return promotion;
+    logs.recordApproval(reviewedBy, approval.idempotent(), servletRequest);
+    return approval;
   }
 
   @ExceptionHandler(ReviewQueueNotFoundException.class)
@@ -79,7 +79,7 @@ public class ReviewQueueController {
         .body(Map.of("code", "SMARTAUDITS_REVIEW_CONFLICT"));
   }
 
-  public record PromotionRequest(
+  public record ApprovalRequest(
       @NotNull @Pattern(regexp = "^[0-9a-fA-F]{64}$") String normalizedCommentHash,
       @Min(0) @Max(0) int aiResult,
       @NotNull PromotableCategory resultCategory,

@@ -59,7 +59,7 @@ public class ReviewQueueRepository {
     return new ReviewQueueModels.Page(List.copyOf(items), total[0], page, pageSize);
   }
 
-  public ReviewQueueModels.Promotion promote(
+  public ReviewQueueModels.Approval approve(
       String normalizedCommentHash,
       int aiResult,
       PromotableCategory category,
@@ -69,7 +69,7 @@ public class ReviewQueueRepository {
     try {
       return jdbc.query(
           connection -> {
-            var statement = connection.prepareStatement(promotionSql());
+            var statement = connection.prepareStatement(approvalSql());
             statement.setString(1, normalizedCommentHash);
             statement.setInt(2, aiResult);
             statement.setString(3, category.name());
@@ -85,17 +85,13 @@ public class ReviewQueueRepository {
             if (!rs.next()) {
               throw new ReviewQueueConflictException();
             }
-            return new ReviewQueueModels.Promotion(
+            return new ReviewQueueModels.Approval(
                 rs.getString("NormalizedCommentHash"),
                 rs.getInt("AiResult"),
                 rs.getString("ReviewStatus"),
                 rs.getString("ReviewedResultCategory"),
                 rs.getString("ReviewedBy"),
                 instant(rs.getTimestamp("ReviewedAt")),
-                rs.getString("ResultCategory"),
-                rs.getString("ClassificationMethod"),
-                rs.getString("ClassifierModelVersion"),
-                nullableDouble(rs, "ClassifierConfidence"),
                 rs.getBoolean("Idempotent"));
           });
     } catch (DataAccessException exception) {
@@ -103,14 +99,14 @@ public class ReviewQueueRepository {
       if (errorNumber == 50001) {
         throw new ReviewQueueNotFoundException();
       }
-      if (errorNumber >= 50002 && errorNumber <= 50004) {
+      if (errorNumber >= 50002 && errorNumber <= 50003) {
         throw new ReviewQueueConflictException();
       }
       throw exception;
     }
   }
 
-  private String promotionSql() {
+  private String approvalSql() {
     return """
                 DECLARE @NormalizedCommentHash CHAR(64)=?;
                 DECLARE @AiResult TINYINT=?;
@@ -126,63 +122,33 @@ public class ReviewQueueRepository {
                 WHERE NormalizedCommentHash=@NormalizedCommentHash AND AiResult=@AiResult;
                 IF @CurrentStatus IS NULL
                     THROW 50001,N'No se encontro la fila de SmartAudits.',1;
-                IF @CurrentStatus=N'PROMOTED'
+                IF @CurrentStatus=N'APPROVED'
                 BEGIN
-                    IF EXISTS (
-                        SELECT 1 FROM ctl.SmartauditsAiCommentLookup
-                        WHERE NormalizedCommentHash=@NormalizedCommentHash AND AiResult=@AiResult
-                          AND ResultCategory=@ReviewedResultCategory AND UPPER(ClassificationMethod)=N'HUMAN'
-                    )
+                    IF EXISTS (SELECT 1 FROM ctl.SmartauditsAiCommentReviewQueue
+                               WHERE NormalizedCommentHash=@NormalizedCommentHash AND AiResult=@AiResult
+                                 AND ReviewedResultCategory=@ReviewedResultCategory)
                     BEGIN
                         SELECT q.NormalizedCommentHash,q.AiResult,q.ReviewStatus,q.ReviewedResultCategory,
-                               q.ReviewedBy,q.ReviewedAt,l.ResultCategory,l.ClassificationMethod,
-                               l.ClassifierModelVersion,l.ClassifierConfidence,CAST(1 AS bit) AS Idempotent
+                               q.ReviewedBy,q.ReviewedAt,CAST(1 AS bit) AS Idempotent
                         FROM ctl.SmartauditsAiCommentReviewQueue q
-                        INNER JOIN ctl.SmartauditsAiCommentLookup l
-                          ON l.NormalizedCommentHash=q.NormalizedCommentHash AND l.AiResult=q.AiResult
                         WHERE q.NormalizedCommentHash=@NormalizedCommentHash AND q.AiResult=@AiResult;
                         COMMIT TRANSACTION;
                         RETURN;
                     END;
-                    THROW 50002,N'La fila ya fue promovida con otro resultado.',1;
+                    THROW 50002,N'La fila ya fue aprobada con otro resultado.',1;
                 END;
-                IF @CurrentStatus NOT IN (N'PENDING',N'APPROVED')
-                    THROW 50003,N'La fila no tiene un estado promovible.',1;
+                IF @CurrentStatus<>N'PENDING'
+                    THROW 50002,N'La fila no tiene un estado aprobable.',1;
                 UPDATE ctl.SmartauditsAiCommentReviewQueue
                 SET ReviewedResultCategory=@ReviewedResultCategory,ReviewedBy=@ReviewedBy,
                     ReviewedAt=SYSUTCDATETIME(),ReviewNotes=@ReviewNotes,ReviewStatus=N'APPROVED',
                     ModifiedAt=SYSUTCDATETIME()
                 WHERE NormalizedCommentHash=@NormalizedCommentHash AND AiResult=@AiResult;
-                MERGE ctl.SmartauditsAiCommentLookup AS target
-                USING (
-                    SELECT NormalizedCommentHash,NormalizedComment,AiResult,ReviewedResultCategory
-                    FROM ctl.SmartauditsAiCommentReviewQueue
-                    WHERE NormalizedCommentHash=@NormalizedCommentHash AND AiResult=@AiResult
-                      AND UPPER(ReviewStatus)=N'APPROVED'
-                ) AS source
-                ON target.NormalizedCommentHash=source.NormalizedCommentHash AND target.AiResult=source.AiResult
-                WHEN MATCHED THEN UPDATE SET
-                    target.NormalizedComment=source.NormalizedComment,
-                    target.ResultCategory=source.ReviewedResultCategory,
-                    target.ClassificationMethod=N'HUMAN',target.ClassifierModelVersion=NULL,
-                    target.ClassifierConfidence=1.0,target.ModifiedAt=SYSUTCDATETIME()
-                WHEN NOT MATCHED BY TARGET THEN
-                    INSERT (NormalizedCommentHash,NormalizedComment,AiResult,ResultCategory,
-                            ClassificationMethod,ClassifierModelVersion,ClassifierConfidence)
-                    VALUES (source.NormalizedCommentHash,source.NormalizedComment,source.AiResult,
-                            source.ReviewedResultCategory,N'HUMAN',NULL,1.0);
-                UPDATE ctl.SmartauditsAiCommentReviewQueue
-                SET ReviewStatus=N'PROMOTED',ModifiedAt=SYSUTCDATETIME()
-                WHERE NormalizedCommentHash=@NormalizedCommentHash AND AiResult=@AiResult
-                  AND UPPER(ReviewStatus)=N'APPROVED';
                 IF @@ROWCOUNT<>1
-                    THROW 50004,N'No fue posible finalizar la promocion.',1;
+                    THROW 50003,N'No fue posible finalizar la aprobacion.',1;
                 SELECT q.NormalizedCommentHash,q.AiResult,q.ReviewStatus,q.ReviewedResultCategory,
-                       q.ReviewedBy,q.ReviewedAt,l.ResultCategory,l.ClassificationMethod,
-                       l.ClassifierModelVersion,l.ClassifierConfidence,CAST(0 AS bit) AS Idempotent
+                       q.ReviewedBy,q.ReviewedAt,CAST(0 AS bit) AS Idempotent
                 FROM ctl.SmartauditsAiCommentReviewQueue q
-                INNER JOIN ctl.SmartauditsAiCommentLookup l
-                  ON l.NormalizedCommentHash=q.NormalizedCommentHash AND l.AiResult=q.AiResult
                 WHERE q.NormalizedCommentHash=@NormalizedCommentHash AND q.AiResult=@AiResult;
                 COMMIT TRANSACTION;
                 """;

@@ -33,23 +33,36 @@ public class TenantDataSourceRegistry {
 
   private HikariDataSource create(String tenantId, ModuleProperties.Tenant tenant) {
     ModuleProperties.Warehouse warehouse = properties.getWarehouse();
+    String host = tenant.getHost() == null || tenant.getHost().isBlank() ? warehouse.getHost() : tenant.getHost();
+    int port = tenant.getPort() == null ? warehouse.getPort() : tenant.getPort();
+    String username = tenant.getUsername() == null ? warehouse.getUsername() : tenant.getUsername();
+    String password = tenant.getPassword() == null ? warehouse.getPassword() : tenant.getPassword();
+    boolean encrypt = tenant.getEncrypt() == null ? warehouse.isEncrypt() : tenant.getEncrypt();
+    boolean trustServerCertificate =
+        tenant.getTrustServerCertificate() == null
+            ? warehouse.isTrustServerCertificate()
+            : tenant.getTrustServerCertificate();
+    int poolSizePerTenant =
+        tenant.getPoolSizePerTenant() == null
+            ? warehouse.getPoolSizePerTenant()
+            : tenant.getPoolSizePerTenant();
     HikariConfig config = new HikariConfig();
     config.setPoolName("experience-" + tenantId);
     config.setJdbcUrl(
         "jdbc:sqlserver://"
-            + warehouse.getHost()
+            + host
             + ":"
-            + warehouse.getPort()
+            + port
             + ";databaseName="
             + tenant.getDatabase()
             + ";encrypt="
-            + warehouse.isEncrypt()
+            + encrypt
             + ";trustServerCertificate="
-            + warehouse.isTrustServerCertificate());
-    config.setUsername(warehouse.getUsername());
-    config.setPassword(warehouse.getPassword());
+            + trustServerCertificate);
+    config.setUsername(username);
+    config.setPassword(password);
     config.setMinimumIdle(0);
-    config.setMaximumPoolSize(warehouse.getPoolSizePerTenant());
+    config.setMaximumPoolSize(poolSizePerTenant);
     config.setConnectionTimeout(10_000);
     config.setValidationTimeout(5_000);
     config.setInitializationFailTimeout(-1);

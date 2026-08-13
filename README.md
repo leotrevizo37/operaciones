@@ -36,6 +36,7 @@ La analitica de SmartAudits consulta los siete tenants y devuelve cobertura expl
 - `docs/data-status.md`
 - `docs/testing.md`
 - `docs/operacion-y-arranque.md`
+- `docs/runbook-entorno-y-artifacts.md`
 - `docs/auditoria-temporal/README.md`
 
 No se incluyen credenciales ni valores de secretos. Cada backend documenta solamente nombres de variables y ejemplos no sensibles.

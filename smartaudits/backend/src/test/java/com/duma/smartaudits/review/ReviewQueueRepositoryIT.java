@@ -11,7 +11,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -115,12 +114,12 @@ class ReviewQueueRepositoryIT {
   }
 
   @Test
-  void promotesOnlyRequestedCompositeKeyAndIsIdempotentForSameHumanCategory() {
+  void approvesOnlyRequestedCompositeKeyAndIsIdempotentForSameHumanCategory() {
     insertQueue(HASH_A, 0, 5, "2026-01-02T10:00:00Z", "PENDING");
     insertQueue(HASH_A, 1, 2, "2026-01-01T10:00:00Z", "PENDING");
 
-    ReviewQueueModels.Promotion first =
-        repository.promote(
+    ReviewQueueModels.Approval first =
+        repository.approve(
             HASH_A,
             0,
             PromotableCategory.INCUMPLIMIENTO_GENERAL,
@@ -131,19 +130,16 @@ class ReviewQueueRepositoryIT {
             "SELECT ModifiedAt FROM ctl.SmartauditsAiCommentReviewQueue WHERE NormalizedCommentHash=? AND AiResult=0",
             Timestamp.class,
             HASH_A);
-    ReviewQueueModels.Promotion repeated =
-        repository.promote(
+    ReviewQueueModels.Approval repeated =
+        repository.approve(
             HASH_A,
             0,
             PromotableCategory.INCUMPLIMIENTO_GENERAL,
             "reviewer-1",
             "La repeticion no debe modificar");
 
-    assertThat(first.reviewStatus()).isEqualTo("PROMOTED");
-    assertThat(first.resultCategory()).isEqualTo("INCUMPLIMIENTO_GENERAL");
-    assertThat(first.classificationMethod()).isEqualTo("HUMAN");
-    assertThat(first.classifierModelVersion()).isNull();
-    assertThat(first.classifierConfidence()).isEqualTo(1.0);
+    assertThat(first.reviewStatus()).isEqualTo("APPROVED");
+    assertThat(first.reviewedResultCategory()).isEqualTo("INCUMPLIMIENTO_GENERAL");
     assertThat(first.idempotent()).isFalse();
     assertThat(repeated.idempotent()).isTrue();
     assertThat(
@@ -161,33 +157,33 @@ class ReviewQueueRepositoryIT {
     assertThat(
             jdbc.queryForObject(
                 "SELECT COUNT(*) FROM ctl.SmartauditsAiCommentLookup", Integer.class))
-        .isEqualTo(1);
+        .isZero();
   }
 
   @Test
-  void mergeFailureRollsBackQueueApprovalAndLookupWrite() {
+  void rejectsASecondApprovalWithAnotherCategory() {
     insertQueue(HASH_B, 0, 4, "2026-01-02T10:00:00Z", "PENDING");
-    jdbc.execute(
-        "ALTER TABLE ctl.SmartauditsAiCommentLookup ADD CONSTRAINT CK_reject_range CHECK(ResultCategory<>N'FUERA_DE_RANGO')");
+    repository.approve(
+        HASH_B, 0, PromotableCategory.INCUMPLIMIENTO_GENERAL, "reviewer-2", null);
 
     assertThatThrownBy(
             () ->
-                repository.promote(
+                repository.approve(
                     HASH_B, 0, PromotableCategory.FUERA_DE_RANGO, "reviewer-2", null))
-        .isInstanceOf(DataAccessException.class);
+        .isInstanceOf(ReviewQueueConflictException.class);
 
     assertThat(
             jdbc.queryForObject(
                 "SELECT ReviewStatus FROM ctl.SmartauditsAiCommentReviewQueue WHERE NormalizedCommentHash=? AND AiResult=0",
                 String.class,
                 HASH_B))
-        .isEqualTo("PENDING");
+        .isEqualTo("APPROVED");
     assertThat(
             jdbc.queryForObject(
                 "SELECT ReviewedResultCategory FROM ctl.SmartauditsAiCommentReviewQueue WHERE NormalizedCommentHash=? AND AiResult=0",
                 String.class,
                 HASH_B))
-        .isNull();
+        .isEqualTo("INCUMPLIMIENTO_GENERAL");
     assertThat(
             jdbc.queryForObject(
                 "SELECT COUNT(*) FROM ctl.SmartauditsAiCommentLookup", Integer.class))

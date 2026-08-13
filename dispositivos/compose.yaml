@@ -1,0 +1,17 @@
+services:
+  dispositivos:
+    image: ${DUMA_IMAGE_NAME:-duma-dispositivos}:${DUMA_IMAGE_TAG:-latest}
+    build: .
+    env_file: "${DUMA_ENV_FILE:-.env}"
+    environment:
+      DUMA_DEVICES_BACKEND_PORT: 8083
+    ports:
+      - "${DUMA_DEVICES_HOST_PORT:-8083}:8083"
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8083/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

@@ -1,0 +1,17 @@
+services:
+  app-shell:
+    image: ${DUMA_IMAGE_NAME:-duma-app-shell}:${DUMA_IMAGE_TAG:-latest}
+    build: .
+    env_file: "${DUMA_ENV_FILE:-.env}"
+    environment:
+      DUMA_SHELL_BACKEND_PORT: 8080
+    ports:
+      - "${DUMA_SHELL_HOST_PORT:-8080}:8080"
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

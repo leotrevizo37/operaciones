@@ -50,6 +50,17 @@ public class ExperienceController {
     return new ExperienceDashboard.Response(Instant.now(), effectiveFrom, effectiveTo, results);
   }
 
+  @GetMapping("/freshness")
+  public FreshnessResponse freshness(@RequestParam(required = false) String tenant) {
+    return new FreshnessResponse(
+        Instant.now(),
+        "factUrlAvailabilityDaily",
+        selectTenants(tenant).stream().map(repository::freshness).toList());
+  }
+
+  public record FreshnessResponse(
+      Instant generatedAt, String ingestionName, List<ExperienceRepository.Freshness> tenants) {}
+
   private List<String> selectTenants(String tenant) {
     List<String> enabled =
         properties.getTenants().entrySet().stream()

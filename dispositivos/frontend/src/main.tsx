@@ -14,6 +14,7 @@ const context: HostContext = {
   timezone: 'America/Mexico_City',
   tenantIds: [],
   period: { from: from.toISOString().slice(0, 10), to },
+  freshness: [],
   identity: {
     subject: 'standalone-read',
     displayName: 'Modo standalone',

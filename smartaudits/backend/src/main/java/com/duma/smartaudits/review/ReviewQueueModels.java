@@ -23,16 +23,12 @@ public final class ReviewQueueModels {
       Double suggestedConfidence,
       String reviewStatus) {}
 
-  public record Promotion(
+  public record Approval(
       String normalizedCommentHash,
       int aiResult,
       String reviewStatus,
       String reviewedResultCategory,
       String reviewedBy,
       Instant reviewedAt,
-      String resultCategory,
-      String classificationMethod,
-      String classifierModelVersion,
-      Double classifierConfidence,
       boolean idempotent) {}
 }

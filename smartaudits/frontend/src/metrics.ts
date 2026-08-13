@@ -32,6 +32,10 @@ export function delta(current: number | null, previous: number | null) {
   return current == null || previous == null ? null : current - previous
 }
 
+export function cultureScore(resultCount: number, unprocessable: number, illegible: number) {
+  return resultCount ? Math.max(0, 100 - (unprocessable * .9 + illegible * .1) / resultCount * 100) : null
+}
+
 export function coverageLabel(status: TenantResult['coverageStatus']) {
   return {
     AVAILABLE: 'Disponible',

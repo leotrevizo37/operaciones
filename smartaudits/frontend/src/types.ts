@@ -5,6 +5,8 @@ export type HostContext = {
   timezone: string
   tenantIds: string[]
   period: { from: string; to: string }
+  filters?: { location: string; device: string; sensor: string }
+  freshness: Freshness[]
   identity: {
     subject: string
     displayName: string
@@ -16,6 +18,8 @@ export type HostContext = {
   auth: { getAccessToken: (moduleId: string) => Promise<string> }
   navigate: (target: { moduleId: string; path?: string }) => void
 }
+
+export type Freshness = { tenantId: string; tenantName: string; ingestionName: string; lastRunStatus: string | null; lastLoadedAt: string | null }
 
 export type Manifest = {
   protocolVersion: '1.0'
@@ -87,6 +91,8 @@ export type RecurrentIssue = {
   lastDate: string | null
 }
 
+export type SmartAuditRow = Record<string, unknown>
+
 export type TenantResult = {
   tenantId: string
   tenantName: string
@@ -97,6 +103,19 @@ export type TenantResult = {
   categories: Category[]
   locations: Location[]
   recurrentIssues: RecurrentIssue[]
+  daily?: SmartAuditRow[]
+  sublocations?: SmartAuditRow[]
+  locationCategories?: SmartAuditRow[]
+  taskCategories?: SmartAuditRow[]
+  priorities?: SmartAuditRow[]
+  tasks?: SmartAuditRow[]
+  methods?: SmartAuditRow[]
+  methodCategories?: SmartAuditRow[]
+  models?: SmartAuditRow[]
+  executors?: SmartAuditRow[]
+  auditors?: SmartAuditRow[]
+  dataQuality?: SmartAuditRow
+  details?: SmartAuditRow[]
   errorCode: string | null
 }
 

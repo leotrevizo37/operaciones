@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,6 +43,40 @@ public class DevicesController {
     List<DevicesDashboard.TenantResult> results =
         select(tenant).stream().map(id -> repository.load(id, effectiveFrom, effectiveTo)).toList();
     return new DevicesDashboard.Response(Instant.now(), effectiveFrom, effectiveTo, results);
+  }
+
+  @GetMapping("/freshness")
+  public FreshnessResponse freshness(@RequestParam(required = false) String tenant) {
+    return new FreshnessResponse(
+        Instant.now(),
+        "DeviceOperationalInsight",
+        select(tenant).stream().map(repository::freshness).toList());
+  }
+
+  public record FreshnessResponse(
+      Instant generatedAt, String ingestionName, List<DevicesRepository.Freshness> tenants) {}
+
+  @GetMapping("/detail")
+  public DevicesDashboard.DetailResponse detail(
+      @RequestParam String tenant,
+      @RequestParam String device,
+      @RequestParam String location,
+      @RequestParam String subLocation,
+      @RequestParam LocalDate date) {
+    List<String> selected = select(tenant);
+    if (selected.size() != 1) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Seleccione un solo tenant para consultar la evidencia.");
+    }
+    try {
+      UUID.fromString(device);
+      UUID.fromString(location);
+      UUID.fromString(subLocation);
+    } catch (IllegalArgumentException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El dispositivo o su ubicacion no son validos.");
+    }
+    return repository.detail(selected.get(0), device, location, subLocation, date);
   }
 
   private List<String> select(String tenant) {

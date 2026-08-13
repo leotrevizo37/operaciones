@@ -1,0 +1,17 @@
+services:
+  experiencia-digital:
+    image: ${DUMA_IMAGE_NAME:-duma-experiencia-digital}:${DUMA_IMAGE_TAG:-latest}
+    build: .
+    env_file: "${DUMA_ENV_FILE:-.env}"
+    environment:
+      DUMA_EXPERIENCE_BACKEND_PORT: 8081
+    ports:
+      - "${DUMA_EXPERIENCE_HOST_PORT:-8081}:8081"
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8081/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

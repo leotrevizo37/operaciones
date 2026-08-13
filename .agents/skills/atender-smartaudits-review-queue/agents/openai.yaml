@@ -1,4 +1,0 @@
-interface:
-  display_name: "Review queue web de SmartAudits"
-  short_description: "Implementar modal y promoción SmartAudits"
-  default_prompt: "Usa $atender-smartaudits-review-queue para implementar en esta app web el modal, endpoints y queries de aprobación y promoción de SmartAudits."

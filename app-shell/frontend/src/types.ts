@@ -20,6 +20,14 @@ export type ModuleRegistration = {
   capabilities: string[]
 }
 
+export type ModuleFreshness = {
+  tenantId: string
+  tenantName: string
+  ingestionName: string
+  lastRunStatus: string | null
+  lastLoadedAt: string | null
+}
+
 export type ReleaseStage = 'DEVELOPMENT' | 'TESTING' | 'STAGING' | 'PRODUCTION'
 export type DataEnvironment = 'DEVELOPMENT' | 'TEST' | 'STAGE' | 'PRODUCTION'
 export type FreshnessMode = 'LIVE' | 'SNAPSHOT' | 'MOCK'
@@ -33,6 +41,8 @@ export type ModuleHostContext = {
   timezone: string
   tenantIds: string[]
   period: { from: string; to: string }
+  filters: { location: string; device: string; sensor: string }
+  freshness: ModuleFreshness[]
   identity: Session
   apiBaseUrl: string
   auth: { getAccessToken: (moduleId: string) => Promise<string> }

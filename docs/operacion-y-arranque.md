@@ -53,7 +53,11 @@ Los nombres anteriores `APP_SHELL_PORT`, `EXPERIENCE_PORT`, `READINGS_PORT`, `DE
 - Acceso de red desde cada modulo a los warehouses SQL Server configurados.
 - Esquemas de base de datos inicializados con los scripts `db/init` de cada aplicacion.
 
-No se requiere ni se permite versionar un archivo `.env`. La configuracion se inyecta como variables del proceso desde el sistema operativo, el orquestador o el gestor de secretos autorizado.
+Cada aplicacion incluye su propio `.env.example`, `Dockerfile`, `compose.yaml` y `Makefile`. Copiar la plantilla como `.env`, completar sus valores fuera del control de versiones y ejecutar `make up` desde el directorio de esa aplicacion. `compose.yaml` carga directamente ese `.env`; tambien acepta `DUMA_ENV_FILE` para una ruta alternativa administrada por el despliegue.
+
+Cuando ya existan los cinco `.env` individuales, el `Makefile` de la raiz permite ejecutar `make up` para arrancarlos todos o `make down` para detenerlos.
+
+Las conexiones de los modulos se resuelven por tenant dentro de cada feature: `DUMA_TENANTS_<TENANT>_HOST`, `DATABASE`, `USERNAME` y `PASSWORD`. Los campos opcionales `PORT`, `ENCRYPT`, `TRUST_SERVER_CERTIFICATE` y `POOL_SIZE_PER_TENANT` permiten ajustar el transporte por tenant. Por estar en el `.env` de cada aplicacion, un mismo tenant puede usar hosts o entornos distintos entre Experiencia, Lecturas, Dispositivos y SmartAudits.
 
 ## 4. Preparacion de bases
 
@@ -165,7 +169,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 
 Sustituir el directorio por `lecturas`, `dispositivos` o `smartaudits`. Antes de iniciar, inyectar en el proceso las variables declaradas en `backend/application.example.yml`.
 
-El perfil `dev` habilita lectura standalone. SmartAudits mantiene bloqueada la cola humana porque aprobar/promover requiere un JWT emitido por el shell. La UI lo comunica como estado protegido, no como error de datos.
+El perfil `dev` habilita lectura standalone. SmartAudits mantiene bloqueada la cola humana porque aprobar requiere un JWT emitido por el shell. La UI lo comunica como estado protegido, no como error de datos.
 
 ## 7. Arranque integrado
 
@@ -216,7 +220,7 @@ El contexto host contiene locale, zona horaria, periodo, tenants, identidad y ca
 
 ## 9. SmartAudits
 
-La analitica consulta los siete tenants con el mismo aislamiento de cobertura. La cola humana usa exclusivamente la base `carlsjr`, acepta solo `AiResult = 0`, cinco categorias permitidas y una llave compuesta de hash mas resultado. La promocion ocurre en una transaccion directa y finaliza en `PROMOTED`; no invoca el job automatico.
+La analitica consulta los siete tenants con el mismo aislamiento de cobertura. La cola humana usa exclusivamente la base `carlsjr`, acepta solo `AiResult = 0`, cinco categorias permitidas y una llave compuesta de hash mas resultado. La aprobación web ocurre en una transacción directa y finaliza en `APPROVED`; no escribe el lookup, no invoca el job automático y queda disponible para el proceso de promoción posterior.
 
 ## 10. Validacion reproducible
 

@@ -3,6 +3,7 @@ package com.duma.smartaudits.domain;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public final class SmartAuditsDashboard {
   private SmartAuditsDashboard() {}
@@ -20,6 +21,19 @@ public final class SmartAuditsDashboard {
       List<Category> categories,
       List<Location> locations,
       List<RecurrentIssue> recurrentIssues,
+      List<Map<String, Object>> daily,
+      List<Map<String, Object>> sublocations,
+      List<Map<String, Object>> locationCategories,
+      List<Map<String, Object>> taskCategories,
+      List<Map<String, Object>> priorities,
+      List<Map<String, Object>> tasks,
+      List<Map<String, Object>> methods,
+      List<Map<String, Object>> methodCategories,
+      List<Map<String, Object>> models,
+      List<Map<String, Object>> executors,
+      List<Map<String, Object>> auditors,
+      Map<String, Object> dataQuality,
+      List<Map<String, Object>> details,
       String errorCode) {}
 
   public record Summary(

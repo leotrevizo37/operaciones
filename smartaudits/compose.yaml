@@ -1,0 +1,17 @@
+services:
+  smartaudits:
+    image: ${DUMA_IMAGE_NAME:-duma-smartaudits}:${DUMA_IMAGE_TAG:-latest}
+    build: .
+    env_file: "${DUMA_ENV_FILE:-.env}"
+    environment:
+      DUMA_SMARTAUDITS_BACKEND_PORT: 8084
+    ports:
+      - "${DUMA_SMARTAUDITS_HOST_PORT:-8084}:8084"
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8084/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

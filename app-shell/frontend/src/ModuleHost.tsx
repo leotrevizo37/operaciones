@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from './api'
-import type { DumaModuleElement, ModuleHostContext, ModuleRegistration, Session } from './types'
+import type { DumaModuleElement, ModuleFreshness, ModuleHostContext, ModuleRegistration, Session } from './types'
 
 type Props = {
   module: ModuleRegistration
   session: Session
   tenantIds: string[]
   period: { from: string; to: string }
+  filters: { location: string; device: string; sensor: string }
+  freshness: ModuleFreshness[]
   onNavigate: (moduleId: string) => void
 }
 
 type TokenResponse = { accessToken: string; tokenType: string; expiresIn: number }
 type ModuleReadyDetail = { protocolVersion?: unknown; moduleId?: unknown; capabilities?: unknown }
 
-export function ModuleHost({ module, session, tenantIds, period, onNavigate }: Props) {
+export function ModuleHost({ module, session, tenantIds, period, filters, freshness, onNavigate }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
 
@@ -54,6 +56,8 @@ export function ModuleHost({ module, session, tenantIds, period, onNavigate }: P
           timezone: 'America/Mexico_City',
           tenantIds,
           period,
+          filters,
+          freshness,
           identity: session,
           apiBaseUrl: module.apiBaseUrl,
           auth: {
@@ -79,7 +83,7 @@ export function ModuleHost({ module, session, tenantIds, period, onNavigate }: P
       disposed = true
       element?.remove()
     }
-  }, [module, onNavigate, period, session, tenantIds])
+  }, [filters, freshness, module, onNavigate, period, session, tenantIds])
 
   return (
     <section className="module-frame" aria-busy={state === 'loading'}>

@@ -8,7 +8,7 @@ describe('ModuleBadge', () => {
     expect(screen.getByText('Pruebas')).toHaveClass('release-testing')
   })
 
-  it('mantiene separadas liberacion, entorno, frescura, alcance y clearance', () => {
+  it('muestra solo liberacion y entorno con semantica independiente', () => {
     render(<ModuleStatusBadges module={{
       moduleId: 'lecturas',
       displayName: 'Lecturas',
@@ -23,9 +23,17 @@ describe('ModuleBadge', () => {
       capabilities: ['dashboard'],
     }} />)
     expect(screen.getByText('Pruebas')).toBeInTheDocument()
-    expect(screen.getByText('Datos · Producción')).toBeInTheDocument()
-    expect(screen.getByText('Frescura · Viva')).toBeInTheDocument()
-    expect(screen.getByText('Scope · 7 tenants')).toBeInTheDocument()
-    expect(screen.getByText('Clearance · Académico privado')).toBeInTheDocument()
+    expect(screen.getByText('Datos · Producción')).toHaveClass('data-production')
+    expect(screen.queryByText(/Frescura ·/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Clearance ·/)).not.toBeInTheDocument()
+  })
+
+  it('alarma cuando la base de datos no esta disponible', () => {
+    render(<ModuleStatusBadges module={{
+      moduleId: 'lecturas', displayName: 'Lecturas', customElement: 'duma-readings-module',
+      remoteEntryUrl: '', apiBaseUrl: '', releaseStage: 'PRODUCTION', dataEnvironment: 'PRODUCTION',
+      freshnessMode: 'LIVE', clearance: 'ACADEMIC_PRIVATE', tenantScope: 'ALL_TENANTS', capabilities: [],
+    }} connected={false} />)
+    expect(screen.getByText('Base de datos no disponible')).toHaveClass('freshness-failed')
   })
 })

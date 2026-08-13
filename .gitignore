@@ -8,4 +8,7 @@
 **/.idea/
 **/*.log
 config/ports.local.ps1
+config/runtime.local.ps1
+.runtime/
+artifacts/
 .DS_Store

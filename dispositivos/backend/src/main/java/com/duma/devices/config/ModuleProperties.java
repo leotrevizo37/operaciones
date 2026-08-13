@@ -237,6 +237,9 @@ public class ModuleProperties {
 
   public static class Tenant {
     private String displayName, database;
+    private String host, username, password;
+    private Integer port, poolSizePerTenant;
+    private Boolean encrypt, trustServerCertificate;
     private boolean enabled = true;
 
     public String getDisplayName() {
@@ -253,6 +256,62 @@ public class ModuleProperties {
 
     public void setDatabase(String v) {
       database = v;
+    }
+
+    public String getHost() {
+      return host;
+    }
+
+    public void setHost(String v) {
+      host = v;
+    }
+
+    public Integer getPort() {
+      return port;
+    }
+
+    public void setPort(Integer v) {
+      port = v;
+    }
+
+    public String getUsername() {
+      return username;
+    }
+
+    public void setUsername(String v) {
+      username = v;
+    }
+
+    public String getPassword() {
+      return password;
+    }
+
+    public void setPassword(String v) {
+      password = v;
+    }
+
+    public Boolean getEncrypt() {
+      return encrypt;
+    }
+
+    public void setEncrypt(Boolean v) {
+      encrypt = v;
+    }
+
+    public Boolean getTrustServerCertificate() {
+      return trustServerCertificate;
+    }
+
+    public void setTrustServerCertificate(Boolean v) {
+      trustServerCertificate = v;
+    }
+
+    public Integer getPoolSizePerTenant() {
+      return poolSizePerTenant;
+    }
+
+    public void setPoolSizePerTenant(Integer v) {
+      poolSizePerTenant = v;
     }
 
     public boolean isEnabled() {

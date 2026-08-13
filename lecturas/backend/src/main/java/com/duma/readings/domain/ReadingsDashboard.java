@@ -18,6 +18,9 @@ public final class ReadingsDashboard {
       Summary current,
       Summary previous,
       List<SensorException> exceptions,
+      List<SensorHourly> hourly,
+      List<SensorTimeline> timeline,
+      List<SensorAggregate> sensors,
       String errorCode) {}
 
   public record Summary(
@@ -44,4 +47,37 @@ public final class ReadingsDashboard {
       Double minutesWithoutReadings,
       Instant auditAt,
       Instant lastReadingAt) {}
+
+  public record SensorHourly(
+      Instant timeSpan,
+      long sensors,
+      Double avgReadings,
+      long totalReadings,
+      long lostSensors,
+      long lateSensors) {}
+
+  public record SensorTimeline(
+      String sensorId,
+      Instant timeSpan,
+      String localTimeSpan,
+      long readingsCount,
+      boolean late,
+      boolean disconnected,
+      Instant lastReadingAt,
+      Instant connectionLostAt,
+      Double minutesWithoutReadings) {}
+
+  public record SensorAggregate(
+      String sensorId,
+      String locationName,
+      String deviceName,
+      String sensorName,
+      long observedIntervals,
+      long totalReadings,
+      Double avgReadings,
+      long lostIntervals,
+      long lateIntervals,
+      Double healthPercentage,
+      Instant lastReadingAt,
+      Double maxLossMinutes) {}
 }

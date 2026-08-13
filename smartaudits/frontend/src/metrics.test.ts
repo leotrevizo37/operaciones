@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregate, isPromotable } from './metrics'
+import { aggregate, cultureScore, isPromotable } from './metrics'
 import type { Summary, TenantResult } from './types'
 
 const summary = (results: number, compliance: number, evidence: number, failed: number): Summary => ({
@@ -37,6 +37,11 @@ const tenant = (current: Summary): TenantResult => ({
 })
 
 describe('smartaudits metrics', () => {
+  it('pondera la cultura de evidencia con mayor penalizacion para imagen no procesable', () => {
+    expect(cultureScore(100, 10, 10)).toBe(90)
+    expect(cultureScore(0, 0, 0)).toBeNull()
+  })
+
   it('pondera tasas por sus denominadores reales', () => {
     const result = aggregate([tenant(summary(10, 5, 10, 5)), tenant(summary(90, 90, 90, 0))])
     expect(result.complianceRate).toBe(95)

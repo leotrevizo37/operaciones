@@ -46,6 +46,17 @@ public class SmartAuditsController {
     return new SmartAuditsDashboard.Response(Instant.now(), effectiveFrom, effectiveTo, tenants);
   }
 
+  @GetMapping("/freshness")
+  public FreshnessResponse freshness(@RequestParam(required = false) String tenant) {
+    return new FreshnessResponse(
+        Instant.now(),
+        "factSmartauditsCategories",
+        select(tenant).stream().map(repository::freshness).toList());
+  }
+
+  public record FreshnessResponse(
+      Instant generatedAt, String ingestionName, List<SmartAuditsRepository.Freshness> tenants) {}
+
   private List<String> select(String tenant) {
     List<String> enabled =
         properties.getTenants().entrySet().stream()

@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -23,6 +24,16 @@ import org.springframework.stereotype.Repository;
 public class SmartAuditsRepository {
   private static final Logger log = LoggerFactory.getLogger(SmartAuditsRepository.class);
   private static final String FACT = "dwh.factSmartauditsCategories";
+  private static final String PERIOD =
+      """
+      WITH period AS (
+          SELECT *, CONVERT(date,COALESCE(ReviewAIDate,ReviewDate,SourceLastChangedAt)) AS AuditDate,
+                 CASE WHEN ReviewDate IS NOT NULL AND ReviewAIDate IS NOT NULL AND ReviewAIDate>=ReviewDate
+                      THEN DATEDIFF(SECOND,ReviewDate,ReviewAIDate)/60.0 END AS ReviewLatencyMinutes
+          FROM dwh.factSmartauditsCategories
+          WHERE CONVERT(date,COALESCE(ReviewAIDate,ReviewDate,SourceLastChangedAt)) BETWEEN ? AND ?
+      )
+      """;
   private final ModuleProperties properties;
   private final TenantDataSourceRegistry registry;
 
@@ -33,6 +44,9 @@ public class SmartAuditsRepository {
 
   public SmartAuditsDashboard.TenantResult load(String tenantId, LocalDate from, LocalDate to) {
     ModuleProperties.Tenant tenant = properties.getTenants().get(tenantId);
+    if (!tenant.isEnabled() || tenant.getDatabase() == null || tenant.getDatabase().isBlank())
+      return unavailable(
+          tenantId, tenant.getDisplayName(), CoverageStatus.UNAVAILABLE, List.of(), null);
     try {
       JdbcTemplate jdbc = registry.jdbc(tenantId);
       if (!exists(jdbc, FACT)) {
@@ -55,6 +69,19 @@ public class SmartAuditsRepository {
             List.of(),
             List.of(),
             List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            Map.of(),
+            List.of(),
             null);
       }
       return new SmartAuditsDashboard.TenantResult(
@@ -67,9 +94,25 @@ public class SmartAuditsRepository {
           categories(jdbc, from, to),
           locations(jdbc, from, to),
           recurrentIssues(jdbc, from, to),
+          daily(jdbc, from, to),
+          sublocations(jdbc, from, to),
+          locationCategories(jdbc, from, to),
+          taskCategories(jdbc, from, to),
+          priorities(jdbc, from, to),
+          tasks(jdbc, from, to),
+          methods(jdbc, from, to),
+          methodCategories(jdbc, from, to),
+          models(jdbc, from, to),
+          people(jdbc, from, to, "ExecutorName"),
+          people(jdbc, from, to, "AuditorName"),
+          dataQuality(jdbc, from, to),
+          details(jdbc, from, to),
           null);
     } catch (DataAccessException | IllegalArgumentException exception) {
-      log.warn("tenant_query_failed module=smartaudits tenant={}", tenantId);
+      log.warn(
+          "tenant_query_failed module=smartaudits tenant={} error={}",
+          tenantId,
+          exception.getClass().getSimpleName());
       return unavailable(
           tenantId,
           tenant.getDisplayName(),
@@ -78,6 +121,41 @@ public class SmartAuditsRepository {
           "TENANT_QUERY_FAILED");
     }
   }
+
+  public Freshness freshness(String tenantId) {
+    ModuleProperties.Tenant tenant = properties.getTenants().get(tenantId);
+    if (!tenant.isEnabled() || tenant.getDatabase() == null || tenant.getDatabase().isBlank())
+      return new Freshness(
+          tenantId, tenant.getDisplayName(), "factSmartauditsCategories", null, null);
+    try {
+      List<Freshness> rows =
+          registry
+              .jdbc(tenantId)
+              .query(
+                  "SELECT LastRunStatus, LastLoadedAt FROM ctl.IngestionControl WHERE IngestionName = ?",
+                  (resultSet, rowNumber) ->
+                      new Freshness(
+                          tenantId,
+                          tenant.getDisplayName(),
+                          "factSmartauditsCategories",
+                          resultSet.getString("LastRunStatus"),
+                          instant(resultSet.getTimestamp("LastLoadedAt"))),
+                  "factSmartauditsCategories");
+      return rows.isEmpty()
+          ? new Freshness(tenantId, tenant.getDisplayName(), "factSmartauditsCategories", null, null)
+          : rows.get(0);
+    } catch (DataAccessException | IllegalArgumentException exception) {
+      log.warn("freshness_query_failed module=smartaudits tenant={}", tenantId);
+      return new Freshness(tenantId, tenant.getDisplayName(), "factSmartauditsCategories", null, null);
+    }
+  }
+
+  public record Freshness(
+      String tenantId,
+      String tenantName,
+      String ingestionName,
+      String lastRunStatus,
+      java.time.Instant lastLoadedAt) {}
 
   private SmartAuditsDashboard.TenantResult unavailable(
       String tenantId,
@@ -94,6 +172,19 @@ public class SmartAuditsRepository {
         SmartAuditsDashboard.Summary.empty(),
         List.of(),
         List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        Map.of(),
         List.of(),
         errorCode);
   }
@@ -264,6 +355,241 @@ public class SmartAuditsRepository {
                 rs.getLong("FailedEvidenceCount"),
                 localDate(rs.getDate("FirstDate")),
                 localDate(rs.getDate("LastDate"))),
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> daily(JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT CONVERT(varchar(10),AuditDate,23) AS MetricDate,COUNT_BIG(*) AS ResultCount,
+                   COALESCE(SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS ComplianceResults,
+                   COALESCE(SUM(CASE WHEN ResultCategory<>N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS NonComplianceResults,
+                   CAST(100.0*SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END)/NULLIF(COUNT_BIG(*),0) AS float) AS ComplianceRate,
+                   COALESCE(SUM(EvidenceCount),0) AS EvidenceCount,COALESCE(SUM(FailedEvidenceCount),0) AS FailedEvidenceCount,
+                   CAST(100.0*SUM(FailedEvidenceCount)/NULLIF(SUM(EvidenceCount),0) AS float) AS EvidenceFailureRate,
+                   COALESCE(SUM(CASE WHEN ResultCategory IN (N'IMAGEN_NO_LEGIBLE',N'IMAGEN_NO_PROCESABLE') THEN 1 ELSE 0 END),0) AS ImageQualityIssues,
+                   COALESCE(SUM(CASE WHEN ResultCategory=N'SIN_CLASIFICAR' THEN 1 ELSE 0 END),0) AS UnclassifiedResults,
+                   AVG(CAST(ClassifierConfidence AS float)) AS AvgClassifierConfidence,AVG(CAST(ReviewLatencyMinutes AS float)) AS AvgReviewLatencyMinutes
+            FROM period GROUP BY AuditDate ORDER BY AuditDate
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> sublocations(
+      JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT LocationId,COALESCE(LocationName,N'UBICACION_SIN_NOMBRE') AS LocationName,SublocationId,
+                   COALESCE(SublocationName,N'SUBUBICACION_SIN_NOMBRE') AS SublocationName,COUNT_BIG(*) AS ResultCount,
+                   COUNT_BIG(DISTINCT [Task]) AS TaskCount,
+                   COALESCE(SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS ComplianceResults,
+                   COALESCE(SUM(CASE WHEN ResultCategory<>N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS NonComplianceResults,
+                   CAST(100.0*SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END)/NULLIF(COUNT_BIG(*),0) AS float) AS ComplianceRate,
+                   COALESCE(SUM(EvidenceCount),0) AS EvidenceCount,COALESCE(SUM(FailedEvidenceCount),0) AS FailedEvidenceCount,
+                   CAST(100.0*SUM(FailedEvidenceCount)/NULLIF(SUM(EvidenceCount),0) AS float) AS EvidenceFailureRate,
+                   COALESCE(SUM(CASE WHEN ResultCategory IN (N'IMAGEN_NO_LEGIBLE',N'IMAGEN_NO_PROCESABLE') THEN 1 ELSE 0 END),0) AS ImageQualityIssues,
+                   CONVERT(varchar(10),MAX(AuditDate),23) AS LatestDate
+            FROM period
+            GROUP BY LocationId,LocationName,SublocationId,SublocationName
+            ORDER BY NonComplianceResults DESC,ResultCount DESC,LocationName,SublocationName
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> locationCategories(
+      JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT LocationId,COALESCE(LocationName,N'UBICACION_SIN_NOMBRE') AS LocationName,ResultCategory,COUNT_BIG(*) AS ResultCount
+            FROM period GROUP BY LocationId,LocationName,ResultCategory ORDER BY LocationName,ResultCategory
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> taskCategories(
+      JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT COALESCE(TaskCategory,N'SIN_CATEGORIA') AS TaskCategory,COUNT_BIG(*) AS ResultCount,
+                   COUNT_BIG(DISTINCT [Task]) AS TaskCount,COUNT_BIG(DISTINCT LocationId) AS LocationCount,
+                   COALESCE(SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS ComplianceResults,
+                   COALESCE(SUM(CASE WHEN ResultCategory<>N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS NonComplianceResults,
+                   CAST(100.0*SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END)/NULLIF(COUNT_BIG(*),0) AS float) AS ComplianceRate,
+                   COALESCE(SUM(EvidenceCount),0) AS EvidenceCount,COALESCE(SUM(FailedEvidenceCount),0) AS FailedEvidenceCount,
+                   CAST(100.0*SUM(FailedEvidenceCount)/NULLIF(SUM(EvidenceCount),0) AS float) AS EvidenceFailureRate
+            FROM period GROUP BY COALESCE(TaskCategory,N'SIN_CATEGORIA')
+            ORDER BY NonComplianceResults DESC,ResultCount DESC,TaskCategory
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> priorities(
+      JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT COALESCE(Priority,N'SIN_PRIORIDAD') AS Priority,COUNT_BIG(*) AS ResultCount,
+                   COUNT_BIG(DISTINCT [Task]) AS TaskCount,COUNT_BIG(DISTINCT LocationId) AS LocationCount,
+                   COALESCE(SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS ComplianceResults,
+                   COALESCE(SUM(CASE WHEN ResultCategory<>N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS NonComplianceResults,
+                   CAST(100.0*SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END)/NULLIF(COUNT_BIG(*),0) AS float) AS ComplianceRate,
+                   COALESCE(SUM(EvidenceCount),0) AS EvidenceCount,COALESCE(SUM(FailedEvidenceCount),0) AS FailedEvidenceCount,
+                   CAST(100.0*SUM(FailedEvidenceCount)/NULLIF(SUM(EvidenceCount),0) AS float) AS EvidenceFailureRate
+            FROM period GROUP BY COALESCE(Priority,N'SIN_PRIORIDAD')
+            ORDER BY NonComplianceResults DESC,ResultCount DESC,Priority
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> tasks(JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT TOP (150) p.[Task] AS TaskId,COALESCE(p.TaskName,N'TAREA_SIN_NOMBRE') AS TaskName,
+                   p.[Checkpoint] AS CheckpointId,COALESCE(p.CheckpointName,N'CHECKPOINT_SIN_NOMBRE') AS CheckpointName,
+                   COALESCE(p.TaskCategory,N'SIN_CATEGORIA') AS TaskCategory,COALESCE(p.Priority,N'SIN_PRIORIDAD') AS Priority,
+                   COUNT_BIG(*) AS ResultCount,COUNT_BIG(DISTINCT p.LocationId) AS LocationCount,
+                   COALESCE(SUM(CASE WHEN p.ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS ComplianceResults,
+                   COALESCE(SUM(CASE WHEN p.ResultCategory<>N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS NonComplianceResults,
+                   CAST(100.0*SUM(CASE WHEN p.ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END)/NULLIF(COUNT_BIG(*),0) AS float) AS ComplianceRate,
+                   COALESCE(SUM(p.EvidenceCount),0) AS EvidenceCount,COALESCE(SUM(p.FailedEvidenceCount),0) AS FailedEvidenceCount,
+                   CAST(100.0*SUM(p.FailedEvidenceCount)/NULLIF(SUM(p.EvidenceCount),0) AS float) AS EvidenceFailureRate,
+                   top_issue.ResultCategory AS TopIssueCategory,COALESCE(top_issue.IssueCount,0) AS TopIssueCount,CONVERT(varchar(10),MAX(p.AuditDate),23) AS LatestDate
+            FROM period AS p
+            OUTER APPLY (SELECT TOP (1) issue.ResultCategory,COUNT_BIG(*) AS IssueCount FROM period AS issue
+                         WHERE ((issue.[Task]=p.[Task]) OR (issue.[Task] IS NULL AND p.[Task] IS NULL)) AND issue.ResultCategory<>N'CUMPLIMIENTO'
+                         GROUP BY issue.ResultCategory ORDER BY COUNT_BIG(*) DESC,issue.ResultCategory) AS top_issue
+            GROUP BY p.[Task],p.TaskName,p.[Checkpoint],p.CheckpointName,p.TaskCategory,p.Priority,top_issue.ResultCategory,top_issue.IssueCount
+            ORDER BY NonComplianceResults DESC,ResultCount DESC,TaskName
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> methods(JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT COALESCE(ClassificationMethod,N'SIN_CLASIFICAR') AS ClassificationMethod,COUNT_BIG(*) AS ResultCount,
+                   COALESCE(SUM(CASE WHEN ResultCategory<>N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS NonComplianceResults,
+                   COUNT_BIG(DISTINCT ResultCategory) AS CategoryCount,COUNT_BIG(DISTINCT ClassifierModelVersion) AS ModelCount,
+                   AVG(CAST(ClassifierConfidence AS float)) AS AvgConfidence,MIN(CAST(ClassifierConfidence AS float)) AS MinConfidence,
+                   MAX(CAST(ClassifierConfidence AS float)) AS MaxConfidence,CONVERT(varchar(10),MAX(AuditDate),23) AS LatestDate
+            FROM period GROUP BY COALESCE(ClassificationMethod,N'SIN_CLASIFICAR')
+            ORDER BY ResultCount DESC,ClassificationMethod
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> methodCategories(
+      JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT COALESCE(ClassificationMethod,N'SIN_CLASIFICAR') AS ClassificationMethod,ResultCategory,
+                   COUNT_BIG(*) AS ResultCount,AVG(CAST(ClassifierConfidence AS float)) AS AvgConfidence
+            FROM period GROUP BY COALESCE(ClassificationMethod,N'SIN_CLASIFICAR'),ResultCategory
+            ORDER BY ClassificationMethod,ResultCategory
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> models(JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT COALESCE(ClassifierModelVersion,N'SIN_MODELO') AS ClassifierModelVersion,
+                   COALESCE(ClassificationMethod,N'SIN_CLASIFICAR') AS ClassificationMethod,COUNT_BIG(*) AS ResultCount,
+                   COUNT_BIG(DISTINCT ResultCategory) AS CategoryCount,AVG(CAST(ClassifierConfidence AS float)) AS AvgConfidence,
+                   MIN(CAST(ClassifierConfidence AS float)) AS MinConfidence,MAX(CAST(ClassifierConfidence AS float)) AS MaxConfidence,
+                   CONVERT(varchar(10),MIN(AuditDate),23) AS FirstDate,CONVERT(varchar(10),MAX(AuditDate),23) AS LastDate
+            FROM period GROUP BY COALESCE(ClassifierModelVersion,N'SIN_MODELO'),COALESCE(ClassificationMethod,N'SIN_CLASIFICAR')
+            ORDER BY ResultCount DESC,ClassifierModelVersion
+            """,
+        Date.valueOf(from),
+        Date.valueOf(to));
+  }
+
+  private List<Map<String, Object>> people(
+      JdbcTemplate jdbc, LocalDate from, LocalDate to, String column) {
+    String emptyName = column.equals("ExecutorName") ? "EJECUTOR_SIN_NOMBRE" : "AUDITOR_SIN_NOMBRE";
+    String sql =
+        PERIOD
+            + """
+            SELECT TOP (80) COALESCE(%s,N'%s') AS %s,COUNT_BIG(*) AS ResultCount,
+                   COUNT_BIG(DISTINCT LocationId) AS LocationCount,
+                   COALESCE(SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS ComplianceResults,
+                   COALESCE(SUM(CASE WHEN ResultCategory<>N'CUMPLIMIENTO' THEN 1 ELSE 0 END),0) AS NonComplianceResults,
+                   CAST(100.0*SUM(CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END)/NULLIF(COUNT_BIG(*),0) AS float) AS ComplianceRate,
+                   COALESCE(SUM(EvidenceCount),0) AS EvidenceCount,COALESCE(SUM(FailedEvidenceCount),0) AS FailedEvidenceCount,
+                   CAST(100.0*SUM(FailedEvidenceCount)/NULLIF(SUM(EvidenceCount),0) AS float) AS EvidenceFailureRate,
+                   CONVERT(varchar(10),MAX(AuditDate),23) AS LatestDate
+            FROM period GROUP BY COALESCE(%s,N'%s')
+            ORDER BY NonComplianceResults DESC,ResultCount DESC,%s
+            """
+                .formatted(column, emptyName, column, column, emptyName, column);
+    return jdbc.queryForList(sql, Date.valueOf(from), Date.valueOf(to));
+  }
+
+  private Map<String, Object> dataQuality(
+      JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    List<Map<String, Object>> rows =
+        jdbc.queryForList(
+            PERIOD
+                + """
+                SELECT COALESCE(SUM(CASE WHEN LocationId IS NULL THEN 1 ELSE 0 END),0) AS MissingLocationId,
+                       COALESCE(SUM(CASE WHEN LocationName IS NULL OR LTRIM(RTRIM(LocationName))='' THEN 1 ELSE 0 END),0) AS MissingLocationName,
+                       COALESCE(SUM(CASE WHEN SublocationId IS NULL THEN 1 ELSE 0 END),0) AS MissingSublocationId,
+                       COALESCE(SUM(CASE WHEN SublocationName IS NULL OR LTRIM(RTRIM(SublocationName))='' THEN 1 ELSE 0 END),0) AS MissingSublocationName,
+                       COALESCE(SUM(CASE WHEN [Task] IS NULL THEN 1 ELSE 0 END),0) AS MissingTaskId,
+                       COALESCE(SUM(CASE WHEN TaskName IS NULL OR LTRIM(RTRIM(TaskName))='' THEN 1 ELSE 0 END),0) AS MissingTaskName,
+                       COALESCE(SUM(CASE WHEN ExecutorName IS NULL OR LTRIM(RTRIM(ExecutorName))='' THEN 1 ELSE 0 END),0) AS MissingExecutorName,
+                       COALESCE(SUM(CASE WHEN AuditorName IS NULL OR LTRIM(RTRIM(AuditorName))='' THEN 1 ELSE 0 END),0) AS MissingAuditorName,
+                       COALESCE(SUM(CASE WHEN TaskCategory IS NULL OR TaskCategory=N'SIN_CATEGORIA' THEN 1 ELSE 0 END),0) AS MissingTaskCategory,
+                       COALESCE(SUM(CASE WHEN Priority IS NULL OR LTRIM(RTRIM(Priority))='' THEN 1 ELSE 0 END),0) AS MissingPriority,
+                       COALESCE(SUM(CASE WHEN AiResult IS NULL THEN 1 ELSE 0 END),0) AS MissingAiResult,
+                       COALESCE(SUM(CASE WHEN ReviewAIDate IS NULL THEN 1 ELSE 0 END),0) AS MissingReviewAiDate,
+                       COALESCE(SUM(CASE WHEN EvidenceCount=0 THEN 1 ELSE 0 END),0) AS ResultsWithoutEvidence,
+                       COALESCE(SUM(CASE WHEN ResultCategory=N'SIN_CLASIFICAR' THEN 1 ELSE 0 END),0) AS UnclassifiedResults,
+                       COALESCE(SUM(CASE WHEN ClassifierConfidence IS NULL THEN 1 ELSE 0 END),0) AS MissingClassifierConfidence,
+                       COALESCE(SUM(CASE WHEN ReviewDate IS NOT NULL AND ReviewAIDate IS NOT NULL AND ReviewAIDate<ReviewDate THEN 1 ELSE 0 END),0) AS NegativeReviewLatency,
+                       COALESCE(SUM(CASE WHEN (AiResult=1 AND ResultCategory<>N'CUMPLIMIENTO') OR (AiResult=0 AND ResultCategory=N'CUMPLIMIENTO') THEN 1 ELSE 0 END),0) AS ResultMismatch
+                FROM period
+                """,
+            Date.valueOf(from),
+            Date.valueOf(to));
+    return rows.isEmpty() ? Map.of() : rows.get(0);
+  }
+
+  private List<Map<String, Object>> details(JdbcTemplate jdbc, LocalDate from, LocalDate to) {
+    return jdbc.queryForList(
+        PERIOD
+            + """
+            SELECT TOP (500) PlanResultId,WorkPlanId,EvidencePhotoId,LocationId,SublocationId,[Checkpoint] AS CheckpointId,[Task] AS TaskId,
+                   LocationName,SublocationName,CheckpointName,TaskName,ExecutorName,AuditorName,
+                   COALESCE(TaskCategory,N'SIN_CATEGORIA') AS TaskCategory,COALESCE(Priority,N'SIN_PRIORIDAD') AS Priority,
+                   ResultCategory,AiResult,CONVERT(varchar(19),ReviewDate,126) AS ReviewDate,
+                   CONVERT(varchar(19),ReviewAIDate,126) AS ReviewAIDate,CONVERT(varchar(19),SourceLastChangedAt,126) AS SourceLastChangedAt,
+                   COALESCE(ClassificationMethod,N'SIN_CLASIFICAR') AS ClassificationMethod,ClassifierModelVersion,
+                   CAST(ClassifierConfidence AS float) AS ClassifierConfidence,FailedEvidenceCount,EvidenceCount,
+                   CAST(CASE WHEN EvidenceCount>0 THEN 100.0*FailedEvidenceCount/EvidenceCount END AS float) AS EvidenceFailureRate,
+                   CAST(ReviewLatencyMinutes AS float) AS ReviewLatencyMinutes,CONVERT(varchar(19),CreatedAt,126) AS CreatedAt,
+                   CONVERT(varchar(19),ModifiedAt,126) AS ModifiedAt
+            FROM period
+            ORDER BY CASE WHEN ResultCategory=N'CUMPLIMIENTO' THEN 1 ELSE 0 END,FailedEvidenceCount DESC,AuditDate DESC,PlanResultId
+            """,
         Date.valueOf(from),
         Date.valueOf(to));
   }

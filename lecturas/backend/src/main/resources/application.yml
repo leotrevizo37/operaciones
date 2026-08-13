@@ -31,13 +31,19 @@ duma:
     port: ${DUMA_WAREHOUSE_MSSQL_PORT:1433}
     username: ${DUMA_WAREHOUSE_MSSQL_USERNAME:}
     password: ${DUMA_WAREHOUSE_MSSQL_PASSWORD:}
-    encrypt: ${DUMA_WAREHOUSE_MSSQL_ENCRYPT:true}
-    trust-server-certificate: ${DUMA_WAREHOUSE_MSSQL_TRUST_SERVER_CERTIFICATE:false}
+    encrypt: ${DUMA_WAREHOUSE_MSSQL_ENCRYPT:${DUMA_SYSTEMLOG_MSSQL_ENCRYPT:true}}
+    trust-server-certificate: ${DUMA_WAREHOUSE_MSSQL_TRUST_SERVER_CERTIFICATE:${DUMA_SYSTEMLOG_MSSQL_TRUST_SERVER_CERTIFICATE:false}}
     pool-size-per-tenant: ${DUMA_WAREHOUSE_POOL_SIZE_PER_TENANT:2}
   tenants:
     carlsjr: { display-name: Carls Jr, database: "${DUMA_TENANT_CARLSJR_DATABASE:WarehouseSidonCarlsJr}" }
     emerson: { display-name: Emerson, database: "${DUMA_TENANT_EMERSON_DATABASE:WarehouseSidonEmerson}" }
-    valledelencino: { display-name: Valle del Encino, database: "${DUMA_TENANT_VALLEDELENCINO_DATABASE:WarehouseSidonValleDelEncino}" }
+    valledelencino:
+      display-name: Valle del Encino
+      enabled: ${DUMA_TENANTS_VALLEDELENCINO_ENABLED:true}
+      host: "${DUMA_TENANTS_VALLEDELENCINO_HOST:}"
+      database: "${DUMA_TENANTS_VALLEDELENCINO_DATABASE:${DUMA_TENANT_VALLEDELENCINO_DATABASE:WarehouseSidonvalledelencino}}"
+      username: "${DUMA_TENANTS_VALLEDELENCINO_USERNAME:}"
+      password: "${DUMA_TENANTS_VALLEDELENCINO_PASSWORD:}"
     mcdonalds: { display-name: "McDonald's", database: "${DUMA_TENANT_MCDONALDS_DATABASE:}" }
     mcdonalds-cdp: { display-name: "McDonald's CDP", database: "${DUMA_TENANT_MCDONALDS_CDP_DATABASE:}" }
     smartfit: { display-name: SmartFit, database: "${DUMA_TENANT_SMARTFIT_DATABASE:}" }
