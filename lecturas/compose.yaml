@@ -5,6 +5,7 @@ services:
     env_file: "${DUMA_ENV_FILE:-.env}"
     environment:
       DUMA_READINGS_BACKEND_PORT: 8082
+      DUMA_READINGS_STANDALONE_MODE: true
     ports:
       - "${DUMA_READINGS_HOST_PORT:-8082}:8082"
     restart: unless-stopped

@@ -5,6 +5,7 @@ services:
     env_file: "${DUMA_ENV_FILE:-.env}"
     environment:
       DUMA_EXPERIENCE_BACKEND_PORT: 8081
+      DUMA_EXPERIENCE_STANDALONE_MODE: true
     ports:
       - "${DUMA_EXPERIENCE_HOST_PORT:-8081}:8081"
     restart: unless-stopped
