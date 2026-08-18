@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reutilizar interfaces Duma"
+  short_description: "Copiar las tres interfaces productivas Duma"
+  default_prompt: "Usa $reutilizar-interfaces-productivas-duma para reutilizar de forma nativa unicamente Resumen ICOS, Lecturas y Experiencia Digital."

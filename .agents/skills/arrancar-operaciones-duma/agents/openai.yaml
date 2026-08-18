@@ -1,0 +1,4 @@
+interface:
+  display_name: "Arrancar Operaciones Duma"
+  short_description: "Preparar y levantar el entorno local Duma"
+  default_prompt: "Usa $arrancar-operaciones-duma para preparar la configuracion local y levantar Operaciones Duma de forma segura."
